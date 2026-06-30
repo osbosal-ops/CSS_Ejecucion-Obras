@@ -168,20 +168,24 @@ Texto plano, sin markdown, mayúsculas para secciones.`;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 4096,
           messages: [{ role: 'user', content: prompt }],
         }),
       });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
+      if (!r.ok) {
+        const apiMsg = d?.error?.message || d?.error || JSON.stringify(d);
+        throw new Error(`HTTP ${r.status} — ${apiMsg}`);
+      }
       const txt = d.content?.find((b) => b.type === 'text')?.text;
       setActaTxt(txt || 'Error al generar el acta.');
     } catch (e) {
       setActaTxt(
-        'Error al conectar con el servidor.\n\n' +
-        'Asegúrate de que la variable de entorno ANTHROPIC_API_KEY está configurada en Vercel (Settings → Environment Variables) y de que has hecho un Redeploy tras añadirla.\n\n' +
-        'Error técnico: ' + e.message
+        'Error al generar el acta.\n\n' +
+        'Detalle técnico: ' + e.message + '\n\n' +
+        'Si el error menciona la API Key, revisa Vercel → Settings → Environment Variables → ANTHROPIC_API_KEY, y haz Redeploy.\n' +
+        'Si el error menciona "credit balance" o "billing", necesitas añadir crédito en console.anthropic.com → Billing.'
       );
     }
     clearInterval(interval);
