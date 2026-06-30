@@ -164,28 +164,24 @@ Genera el ACTA COMPLETA DE SEGURIDAD Y SALUD en español formal técnico-jurídi
 Texto plano, sin markdown, mayúsculas para secciones.`;
 
     try {
-      const r = await fetch('/api/claude', {
+      const r = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 4096,
-          messages: [{ role: 'user', content: prompt }],
-        }),
+        body: JSON.stringify({ prompt }),
       });
       const d = await r.json();
       if (!r.ok) {
         const apiMsg = d?.error?.message || d?.error || JSON.stringify(d);
         throw new Error(`HTTP ${r.status} — ${apiMsg}`);
       }
-      const txt = d.content?.find((b) => b.type === 'text')?.text;
+      const txt = d.candidates?.[0]?.content?.parts?.[0]?.text;
       setActaTxt(txt || 'Error al generar el acta.');
     } catch (e) {
       setActaTxt(
         'Error al generar el acta.\n\n' +
         'Detalle técnico: ' + e.message + '\n\n' +
-        'Si el error menciona la API Key, revisa Vercel → Settings → Environment Variables → ANTHROPIC_API_KEY, y haz Redeploy.\n' +
-        'Si el error menciona "credit balance" o "billing", necesitas añadir crédito en console.anthropic.com → Billing.'
+        'Revisa Vercel → Settings → Environment Variables → GEMINI_API_KEY, y haz Redeploy.\n' +
+        'Si el error menciona "quota" o "429", has alcanzado el límite diario gratuito (1.500/día) — espera unas horas o inténtalo más tarde.'
       );
     }
     clearInterval(interval);
