@@ -1,0 +1,23 @@
+{
+  "name": "CSS Obras — Coordinación S&S",
+  "short_name": "CSS Obras",
+  "description": "Generador de actas de seguridad y salud en fase de ejecución",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1B3A5C",
+  "theme_color": "#1B3A5C",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='36' fill='%231B3A5C'/><text y='145' x='20' font-size='140' font-family='sans-serif'>🦺</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='96' fill='%231B3A5C'/><text y='390' x='50' font-size='380' font-family='sans-serif'>🦺</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
