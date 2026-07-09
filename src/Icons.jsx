@@ -70,3 +70,6 @@ export const IconUpload = (p) => (
 export const IconCheck = (p) => (
   <svg {...base} {...p}><polyline points="20 6 9 17 4 12"/></svg>
 );
+export const IconFolderOpen = (p) => (
+  <svg {...base} {...p}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polyline points="22 15 17 10 7 10 2 15"/></svg>
+);

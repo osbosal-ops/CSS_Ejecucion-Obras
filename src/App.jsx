@@ -4,7 +4,7 @@ import {
   IconHome, IconFilePlus, IconFiles, IconBuilding, IconUsers, IconHelmet,
   IconTransfer, IconFileText, IconChevronDown, IconChevronRight, IconArrowRight,
   IconArrowLeft, IconSparkle, IconInfo, IconDownload, IconShare, IconCopy,
-  IconRefresh, IconSave, IconPlus, IconUpload, IconCheck,
+  IconRefresh, IconSave, IconPlus, IconUpload, IconCheck, IconFolderOpen,
 } from './Icons.jsx';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -396,6 +396,79 @@ export default function App() {
   const [modal,      setModal]      = useState(null);
   const [detailActa, setDetailActa] = useState(null);
 
+  // Importar acta editada externamente
+  const [importTxt,   setImportTxt]   = useState('');
+  const [importMeta,  setImportMeta]  = useState({ nombre:'', fecha:'', empresa:'', tajo:'' });
+  const [importError, setImportError] = useState('');
+
+  async function handleImportFile(e) {
+    const f = e.target.files[0];
+    if (!f) return;
+    e.target.value = '';               // permitir reimportar el mismo archivo
+
+    const ext = f.name.split('.').pop().toLowerCase();
+    let texto = '';
+
+    try {
+      if (ext === 'docx') {
+        // Extraer texto plano de un .docx usando la librería mammoth (carga dinámica)
+        const mammoth = await import('https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js');
+        const arrayBuffer = await f.arrayBuffer();
+        const result = await mammoth.default.extractRawText({ arrayBuffer });
+        texto = result.value;
+      } else if (['txt', 'md'].includes(ext)) {
+        texto = await f.text();
+      } else {
+        setImportError('Formato no soportado. Usa .docx, .txt o .md');
+        setModal('import-error');
+        return;
+      }
+    } catch (err) {
+      setImportError('Error al leer el archivo: ' + err.message);
+      setModal('import-error');
+      return;
+    }
+
+    if (!texto.trim()) {
+      setImportError('El archivo está vacío o no se pudo extraer texto.');
+      setModal('import-error');
+      return;
+    }
+
+    // Intentar detectar metadatos básicos del texto del acta
+    const fechaMatch   = texto.match(/\d{1,2}[\s\/\-](?:de\s+)?(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|\d{1,2})[\s\/\-]\w+\s+(?:de\s+)?\d{4}/i);
+    const tajoMatch    = texto.match(/(?:movimiento de tierras|cimentaci[oó]n|estructura|ferralla|alba[ñn]iler[ií]a|cubierta|instala|revestimiento|pintura)/i);
+    const empresaMatch = texto.match(/(?:empresa|contratista|subcontrata)[:\s]+([A-ZÁÉÍÓÚÜÑ][A-Za-záéíóúüñ\s,\.]+(?:SL|SA|SLU|SC|CB)?)/i);
+
+    setImportTxt(texto);
+    setImportMeta({
+      nombre:  f.name.replace(/\.[^.]+$/, ''),
+      fecha:   fechaMatch  ? fechaMatch[0]  : new Date().toISOString().slice(0,10),
+      empresa: empresaMatch ? empresaMatch[1].trim() : '',
+      tajo:    tajoMatch   ? tajoMatch[0]   : '',
+    });
+    setModal('import-confirm');
+  }
+
+  function confirmarImport() {
+    if (!importTxt) return;
+    const acta = {
+      id:      Date.now(),
+      tipo:    'importada',
+      obraIdx,
+      fecha:   importMeta.fecha,
+      empresa: importMeta.empresa,
+      tajo:    importMeta.tajo || importMeta.nombre,
+      texto:   importTxt,
+      importada: true,
+    };
+    setActas([acta, ...actas]);
+    setImportTxt('');
+    setModal(null);
+    showToast('✓ Acta importada y guardada en la obra');
+    setScreen('actas');
+  }
+
   // Nueva obra form
   const [noNombre, setNoNombre] = useState('');
   const [noDir,    setNoDir]    = useState('');
@@ -748,7 +821,42 @@ export default function App() {
                   ))
               }
             </div>
-            <button className="btn orange" onClick={() => setScreen('nueva')}><IconPlus />Nueva acta</button>
+            <button className="btn orange" onClick={() => setScreen('nueva')}>
+              <IconPlus />Nueva acta
+            </button>
+
+            {/* ── Importar acta editada ── */}
+            <div className="sh" style={{ marginTop: 20 }}>Importar acta editada</div>
+            <div className="card">
+              <div className="card-title">📥 Importar acta desde archivo</div>
+              <div className="card-sub" style={{ lineHeight: 1.6, marginBottom: 12 }}>
+                Si has exportado un acta, la has editado en Word o en otro programa, puedes reimportarla aquí para guardarla en la obra activa.<br />
+                <span style={{ color: 'var(--blue)', fontWeight: 600 }}>Formatos admitidos: .docx · .txt · .md</span>
+              </div>
+              {!obraActiva ? (
+                <div className="infobox">
+                  <IconInfo />
+                  <p>Selecciona primero una obra activa antes de importar un acta.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="infobox" style={{ marginBottom: 8 }}>
+                    <IconInfo />
+                    <p>El acta se guardará en: <strong>{obraActiva.nombre}</strong></p>
+                  </div>
+                  <label htmlFor="import-file" className="btn primary" style={{ display: 'flex', cursor: 'pointer', marginTop: 0 }}>
+                    <IconFolderOpen />Seleccionar archivo
+                  </label>
+                  <input
+                    id="import-file"
+                    type="file"
+                    accept=".docx,.txt,.md"
+                    style={{ display: 'none' }}
+                    onChange={handleImportFile}
+                  />
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -885,6 +993,58 @@ export default function App() {
         </Modal>
       )}
 
+      {/* ── Modal: confirmar importación ── */}
+      {modal === 'import-confirm' && (
+        <Modal onClose={() => setModal(null)} title="Confirmar importación">
+          <div className="infobox" style={{ marginBottom: 14 }}>
+            <IconInfo />
+            <p>Se ha leído el archivo correctamente. Revisa los datos detectados y ajústalos si es necesario antes de guardar.</p>
+          </div>
+
+          <label className="lbl">Descripción / tajo del acta</label>
+          <input type="text" value={importMeta.tajo}
+            onChange={e => setImportMeta({ ...importMeta, tajo: e.target.value })}
+            placeholder="Ej: Movimiento de tierras" />
+
+          <label className="lbl">Empresa / subcontrata</label>
+          <input type="text" value={importMeta.empresa}
+            onChange={e => setImportMeta({ ...importMeta, empresa: e.target.value })}
+            placeholder="Ej: Excavaciones Benalvalle SL" />
+
+          <label className="lbl">Fecha</label>
+          <input type="text" value={importMeta.fecha}
+            onChange={e => setImportMeta({ ...importMeta, fecha: e.target.value })}
+            placeholder="dd/mm/aaaa" />
+
+          <div className="sh" style={{ marginTop: 8 }}>Vista previa del contenido</div>
+          <div className="ai-out" style={{ maxHeight: '28vh', marginBottom: 12 }}>
+            {importTxt.slice(0, 800)}{importTxt.length > 800 ? '\n\n[...texto continúa...]' : ''}
+          </div>
+
+          <div style={{ background: 'var(--green-bg)', borderRadius: 8, padding: '10px 12px', marginBottom: 12, fontSize: 12, color: 'var(--green)', fontWeight: 600 }}>
+            ✓ Se guardará en: {obraActiva?.nombre || '—'}
+          </div>
+
+          <button className="btn primary" onClick={confirmarImport}>
+            <IconSave />Guardar acta en la obra
+          </button>
+          <button className="btn secondary" onClick={() => setModal(null)}>Cancelar</button>
+        </Modal>
+      )}
+
+      {/* ── Modal: error de importación ── */}
+      {modal === 'import-error' && (
+        <Modal onClose={() => setModal(null)} title="Error al importar">
+          <div style={{ background: 'var(--red-bg)', borderRadius: 9, padding: '12px 14px', marginBottom: 16, fontSize: 13, color: 'var(--red)', lineHeight: 1.5 }}>
+            ⚠ {importError}
+          </div>
+          <div className="card-sub" style={{ marginBottom: 12, lineHeight: 1.6 }}>
+            Asegúrate de que el archivo es un <strong>.docx, .txt o .md</strong> válido y no está protegido con contraseña.
+          </div>
+          <button className="btn secondary" onClick={() => setModal(null)}>Cerrar</button>
+        </Modal>
+      )}
+
       {toast && <div className="toast show">{toast}</div>}
     </div>
   );
@@ -909,14 +1069,15 @@ function ListItem({ icon, color, title, sub, onClick, pill }) {
   );
 }
 function ActaRow({ acta, onClick }) {
+  const isImportada = acta.importada === true;
   return (
     <ListItem
-      icon={<IconFileText />}
-      color={['coordinacion','subcontrata'].includes(acta.tipo) ? 'orange' : 'blue'}
+      icon={isImportada ? <IconFolderOpen /> : <IconFileText />}
+      color={isImportada ? 'blue' : ['coordinacion','subcontrata'].includes(acta.tipo) ? 'orange' : 'blue'}
       title={acta.tajo || TIPO_SHORT[acta.tipo] || 'Acta'}
-      sub={`${acta.fecha||'—'} · ${acta.empresa||'—'}`}
+      sub={`${acta.fecha||'—'} · ${acta.empresa||'—'}${isImportada ? ' · Importada' : ''}`}
       onClick={onClick}
-      pill={{ text:'✓', color:'green' }}
+      pill={isImportada ? { text:'📥', color:'blue' } : { text:'✓', color:'green' }}
     />
   );
 }
